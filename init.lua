@@ -1041,12 +1041,12 @@ require('lazy').setup({
     end,
   },
 
-  -- Helpful Rust stuff
-  {
-    'mrcjkb/rustaceanvim',
-    version = '^5', -- Recommended
-    lazy = false, -- This plugin is already lazy
-  },
+  -- Helpful Rust stuff (causes issues)
+  -- {
+  --   'mrcjkb/rustaceanvim',
+  --   version = '^5', -- Recommended
+  --   lazy = false, -- This plugin is already lazy
+  -- },
 
   -- GitHub copilot
   {
