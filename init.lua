@@ -220,6 +220,16 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   end,
 })
 
+local bundled_ts_parsers = { 'c', 'lua', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' }
+
+if vim.fn.has 'nvim-0.12' == 1 then
+  -- Load Neovim's bundled parsers before plugins are added to runtimepath so the
+  -- 0.12 runtime keeps using its ABI 15 parsers for core languages.
+  for _, lang in ipairs(bundled_ts_parsers) do
+    pcall(vim.treesitter.language.add, lang)
+  end
+end
+
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
 local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
@@ -295,7 +305,26 @@ require('lazy').setup({
   --
   -- Then, because we use the `opts` key (recommended), the configuration runs
   -- after the plugin has been loaded as `require(MODULE).setup(opts)`.
-
+  {
+    'kdheepak/lazygit.nvim',
+    lazy = true,
+    cmd = {
+      'LazyGit',
+      'LazyGitConfig',
+      'LazyGitCurrentFile',
+      'LazyGitFilter',
+      'LazyGitFilterCurrentFile',
+    },
+    -- optional for floating window border decoration
+    dependencies = {
+      'nvim-lua/plenary.nvim',
+    },
+    -- setting the keybinding for LazyGit with 'keys' is recommended in
+    -- order to load the plugin when the command is run for the first time
+    keys = {
+      { '<leader>g', '<cmd>LazyGit<cr>', desc = 'LazyGit' },
+    },
+  },
   {
     'folke/trouble.nvim',
     opts = {}, -- for default options, refer to the configuration section for custom setup.
@@ -844,6 +873,7 @@ require('lazy').setup({
       --   }
       -- end,
       formatters_by_ft = {
+        sql = { 'sql_formatter' },
         lua = { 'stylua' },
         javascript = { 'prettier' },
         typescript = { 'prettier' },
@@ -868,6 +898,13 @@ require('lazy').setup({
         --
         -- You can use 'stop_after_first' to run the first available formatter from the list
         -- javascript = { "prettierd", "prettier", stop_after_first = true },
+      },
+
+      formatters = {
+        sql_formatter = {
+          command = 'sql-formatter',
+          args = { '--language', 'postgresql' },
+        },
       },
     },
   },
@@ -1031,67 +1068,6 @@ require('lazy').setup({
     end,
   },
 
-  -- AI autocomplete like Cursor
-  {
-    'yetone/avante.nvim',
-    event = 'VeryLazy',
-    version = false, -- Never set this value to "*"! Never!
-    opts = {
-      -- add any opts here
-      -- for example
-      provider = 'openai',
-      openai = {
-        endpoint = 'https://api.openai.com/v1',
-        model = 'gpt-4o', -- your desired model (or use gpt-4o, etc.)
-        timeout = 30000, -- Timeout in milliseconds, increase this for reasoning models
-        temperature = 0,
-        max_completion_tokens = 8192, -- Increase this to include reasoning tokens (for reasoning models)
-        --reasoning_effort = "medium", -- low|medium|high, only used for reasoning models
-      },
-    },
-    -- if you want to build from source then do `make BUILD_FROM_SOURCE=true`
-    build = 'make',
-    -- build = "powershell -ExecutionPolicy Bypass -File Build.ps1 -BuildFromSource false" -- for windows
-    dependencies = {
-      'nvim-treesitter/nvim-treesitter',
-      'stevearc/dressing.nvim',
-      'nvim-lua/plenary.nvim',
-      'MunifTanjim/nui.nvim',
-      --- The below dependencies are optional,
-      'echasnovski/mini.pick', -- for file_selector provider mini.pick
-      'nvim-telescope/telescope.nvim', -- for file_selector provider telescope
-      'hrsh7th/nvim-cmp', -- autocompletion for avante commands and mentions
-      'ibhagwan/fzf-lua', -- for file_selector provider fzf
-      'nvim-tree/nvim-web-devicons', -- or echasnovski/mini.icons
-      'zbirenbaum/copilot.lua', -- for providers='copilot'
-      {
-        -- support for image pasting
-        'HakonHarnes/img-clip.nvim',
-        event = 'VeryLazy',
-        opts = {
-          -- recommended settings
-          default = {
-            embed_image_as_base64 = false,
-            prompt_for_file_name = false,
-            drag_and_drop = {
-              insert_mode = true,
-            },
-            -- required for Windows users
-            use_absolute_path = true,
-          },
-        },
-      },
-      {
-        -- Make sure to set this up properly if you have lazy=true
-        'MeanderingProgrammer/render-markdown.nvim',
-        opts = {
-          file_types = { 'markdown', 'Avante' },
-        },
-        ft = { 'markdown', 'Avante' },
-      },
-    },
-  },
-
   -- Highlight todo, notes, etc in comments
   { 'folke/todo-comments.nvim', event = 'VimEnter', dependencies = { 'nvim-lua/plenary.nvim' }, opts = { signs = false } },
 
@@ -1140,23 +1116,16 @@ require('lazy').setup({
     opts = {
       ensure_installed = {
         'bash',
-        'c',
         'diff',
-        'html',
-        'lua',
-        'luadoc',
-        'markdown',
-        'markdown_inline',
-        'query',
-        'vim',
-        'vimdoc',
         'eex',
         'elixir',
         'erlang',
         'heex',
         'html',
+        'luadoc',
         'rust',
       },
+      ignore_install = bundled_ts_parsers,
       -- Autoinstall languages that are not installed
       auto_install = true,
       highlight = {
@@ -1193,7 +1162,7 @@ require('lazy').setup({
     lazy = false, -- This plugin is already lazy
   },
 
-  -- GitHub copilot
+  -- -- GitHub copilot
   {
     'github/copilot.vim',
   },
@@ -1206,8 +1175,21 @@ require('lazy').setup({
   -- MDX
   {
     'davidmh/mdx.nvim',
-    config = true,
     dependencies = { 'nvim-treesitter/nvim-treesitter' },
+  },
+
+  -- In-buffer Markdown preview rendering (toggle with <leader>tm)
+  {
+    'MeanderingProgrammer/render-markdown.nvim',
+    dependencies = { 'nvim-treesitter/nvim-treesitter', 'nvim-tree/nvim-web-devicons' },
+    ft = { 'markdown', 'mdx' },
+    opts = {
+      file_types = { 'markdown', 'mdx' },
+      completions = { lsp = { enabled = true } },
+    },
+    keys = {
+      { '<leader>tm', '<cmd>RenderMarkdown toggle<cr>', desc = '[T]oggle [M]arkdown preview', ft = { 'markdown', 'mdx' } },
+    },
   },
 
   -- The following comments only work if you have downloaded the kickstart repo, not just copy pasted the
@@ -1257,6 +1239,116 @@ require('lazy').setup({
     },
   },
 })
+
+if vim.fn.has 'nvim-0.12' == 1 then
+  local query = require 'vim.treesitter.query'
+
+  local html_script_type_languages = {
+    importmap = 'json',
+    module = 'javascript',
+    ['application/ecmascript'] = 'javascript',
+    ['text/ecmascript'] = 'javascript',
+  }
+
+  local non_filetype_match_injection_language_aliases = {
+    ex = 'elixir',
+    pl = 'perl',
+    sh = 'bash',
+    ts = 'typescript',
+    uxn = 'uxntal',
+  }
+
+  local function first_capture(captures, id)
+    local capture = captures[id]
+    if type(capture) == 'table' then
+      return capture[1]
+    end
+    return capture
+  end
+
+  local function parser_from_markdown_info_string(injection_alias)
+    local match = vim.filetype.match { filename = 'a.' .. injection_alias }
+    return match or non_filetype_match_injection_language_aliases[injection_alias] or injection_alias
+  end
+
+  query.add_predicate('nth?', function(captures, _, _, pred)
+    local node = first_capture(captures, pred[2])
+    local n = tonumber(pred[3])
+    if node and node:parent() and node:parent():named_child_count() > n then
+      return node:parent():named_child(n) == node
+    end
+    return false
+  end, { force = true })
+
+  query.add_predicate('is?', function(captures, _, bufnr, pred)
+    local locals = require 'nvim-treesitter.locals'
+    local node = first_capture(captures, pred[2])
+    local types = { unpack(pred, 3) }
+
+    if not node then
+      return true
+    end
+
+    local _, _, kind = locals.find_definition(node, bufnr)
+    return vim.tbl_contains(types, kind)
+  end, { force = true })
+
+  query.add_predicate('kind-eq?', function(captures, _, _, pred)
+    local node = first_capture(captures, pred[2])
+    local types = { unpack(pred, 3) }
+
+    if not node then
+      return true
+    end
+
+    return vim.tbl_contains(types, node:type())
+  end, { force = true })
+
+  query.add_directive('set-lang-from-mimetype!', function(captures, _, bufnr, pred, metadata)
+    local node = first_capture(captures, pred[2])
+    if not node then
+      return
+    end
+
+    local type_attr_value = vim.treesitter.get_node_text(node, bufnr)
+    local configured = html_script_type_languages[type_attr_value]
+    if configured then
+      metadata['injection.language'] = configured
+    else
+      local parts = vim.split(type_attr_value, '/', {})
+      metadata['injection.language'] = parts[#parts]
+    end
+  end, { force = true })
+
+  query.add_directive('set-lang-from-info-string!', function(captures, _, bufnr, pred, metadata)
+    local node = first_capture(captures, pred[2])
+    if not node then
+      return
+    end
+
+    local injection_alias = vim.treesitter.get_node_text(node, bufnr):lower()
+    metadata['injection.language'] = parser_from_markdown_info_string(injection_alias)
+  end, { force = true })
+
+  query.add_directive('make-range!', function() end, { force = true })
+
+  query.add_directive('downcase!', function(captures, _, bufnr, pred, metadata)
+    local id = pred[2]
+    local node = first_capture(captures, id)
+    if not node then
+      return
+    end
+
+    local capture_metadata = metadata[id]
+    local opts = capture_metadata and { metadata = capture_metadata } or nil
+    local text = vim.treesitter.get_node_text(node, bufnr, opts) or ''
+
+    if not metadata[id] then
+      metadata[id] = {}
+    end
+    metadata[id].text = string.lower(text)
+  end, { force = true })
+end
 
 -- Remove trailing whitespace on save
 vim.api.nvim_create_autocmd({ 'BufWritePre' }, {
