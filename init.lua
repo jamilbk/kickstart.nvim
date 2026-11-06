@@ -225,6 +225,12 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 
 local bundled_ts_parsers = { 'c', 'lua', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' }
 
+if vim.fn.has 'nvim-0.12' == 1 and vim.fn.has 'nvim-0.13' == 0 then
+  -- Async highlighting can read stale Markdown nodes after an edit on 0.12,
+  -- causing get_node_text() to fail with "Index out of bounds".
+  vim.g._ts_force_sync_parsing = true
+end
+
 if vim.fn.has 'nvim-0.12' == 1 then
   -- Load Neovim's bundled parsers before plugins are added to runtimepath so the
   -- 0.12 runtime keeps using its ABI 15 parsers for core languages.
